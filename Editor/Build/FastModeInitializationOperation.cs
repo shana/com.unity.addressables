@@ -4,6 +4,7 @@ using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.AddressableAssets.ResourceProviders;
+using UnityEngine.AddressableAssets.Utility;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.ResourceManagement.Util;
@@ -15,11 +16,14 @@ namespace UnityEditor.AddressableAssets.Settings
         AddressablesImpl m_addressables;
         AddressableAssetSettings m_settings;
         AsyncOperationHandle<IList<AsyncOperationHandle>> groupOp;
+        ResourceManagerDiagnostics m_Diagnostics;
+
         public FastModeInitializationOperation(AddressablesImpl addressables, AddressableAssetSettings settings)
         {
             m_addressables = addressables;
             m_settings = settings;
             m_addressables.ResourceManager.RegisterForCallbacks();
+            m_Diagnostics = new ResourceManagerDiagnostics(m_addressables.ResourceManager);
         }
 
         static T GetBuilderOfType<T>(AddressableAssetSettings settings) where T : class, IDataBuilder
@@ -38,6 +42,14 @@ namespace UnityEditor.AddressableAssets.Settings
             var db = GetBuilderOfType<BuildScriptFastMode>(m_settings);
             if (db == null)
                 UnityEngine.Debug.Log($"Unable to find {nameof(BuildScriptFastMode)} builder in settings assets. Using default Instance and Scene Providers.");
+
+            m_addressables.ResourceManager.postProfilerEvents = ProjectConfigData.postProfilerEvents;
+            if (!m_addressables.ResourceManager.postProfilerEvents)
+            {
+                m_Diagnostics.Dispose();
+                m_Diagnostics = null;
+                m_addressables.ResourceManager.ClearDiagnosticCallbacks();
+            }
 
             var locator = new AddressableAssetSettingsLocator(m_settings);
             m_addressables.AddResourceLocator(locator);
